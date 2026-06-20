@@ -1,6 +1,7 @@
 """
-Streamlit Dashboard for Patient Readmission Predictor.
-Paste a clinical discharge note → get readmission risk prediction + explanation.
+Streamlit Dashboard — MedTech AI Suite
+Page 1-5: Readmission Predictor (NLP on clinical notes)
+Page 6-8: Diabetes Predictor (real clinical data, 100K patients)
 """
 
 import sys
@@ -21,59 +22,72 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import shap
 
-from config import MODELS_DIR
 from nlp_pipeline import clean_clinical_text, extract_clinical_features, prepare_data
-from model import train_and_compare
-
-
-st.set_page_config(page_title="Readmission Predictor", page_icon="🏥", layout="wide")
+from model import train_and_compare as train_readmission
+from diabetes_model import load_diabetes_data, preprocess as preprocess_diabetes, train_and_compare as train_diabetes
 
 MODELS_DIR = Path(PROJECT_ROOT) / "models"
 
+st.set_page_config(page_title="MedTech AI Suite", page_icon="🏥", layout="wide")
+
 
 @st.cache_data
-def load_data():
-    data_path = PROJECT_ROOT / "data" / "clinical_notes.csv"
-    return pd.read_csv(data_path)
+def load_readmission_data():
+    return pd.read_csv(PROJECT_ROOT / "data" / "clinical_notes.csv")
+
+
+@st.cache_data
+def load_diabetes_data_cached():
+    return load_diabetes_data()
 
 
 @st.cache_resource
-def get_pipeline():
-    df = load_data()
+def get_readmission_pipeline():
+    df = load_readmission_data()
     X_train, X_test, y_train, y_test, features, vec = prepare_data(df)
-    results, models = train_and_compare(X_train, X_test, y_train, y_test)
+    results, models = train_readmission(X_train, X_test, y_train, y_test)
     best = joblib.load(MODELS_DIR / "best_model.joblib")
     return df, X_train, X_test, y_train, y_test, features, vec, results, best
 
 
-with st.spinner("Loading data and training models..."):
-    df, X_train, X_test, y_train, y_test, feature_names, vectorizer, results, best_model = get_pipeline()
+@st.cache_resource
+def get_diabetes_pipeline():
+    df = load_diabetes_data_cached()
+    X_train, X_test, y_train, y_test, features, prep = preprocess_diabetes(df)
+    results, models = train_diabetes(X_train, X_test, y_train, y_test)
+    best = joblib.load(MODELS_DIR / "diabetes_best_model.joblib")
+    return df, X_train, X_test, y_train, y_test, features, prep, results, best
 
 
-st.sidebar.title("🏥 Readmission Predictor")
+with st.spinner("Loading models..."):
+    ra_df, ra_Xtr, ra_Xte, ra_ytr, ra_yte, ra_feat, ra_vec, ra_results, ra_best = get_readmission_pipeline()
+
+with st.spinner("Loading diabetes model (100K patients)..."):
+    db_df, db_Xtr, db_Xte, db_ytr, db_yte, db_feat, db_prep, db_results, db_best = get_diabetes_pipeline()
+
+
+st.sidebar.title("🏥 MedTech AI Suite")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate", [
-    "📊 Dashboard",
-    "📝 Predict from Note",
+    "📊 Overview",
+    "📝 Readmission Predictor",
+    "🩺 Diabetes Predictor",
     "📈 Model Comparison",
     "🔍 Feature Importance",
     "📋 Data Explorer",
 ])
 st.sidebar.markdown("---")
-st.sidebar.markdown("**PoC-Grade MedTech Project**")
-st.sidebar.markdown("NLP on Clinical Discharge Notes")
-st.sidebar.markdown(f"Dataset: {len(df):,} patients")
+st.sidebar.markdown("**MedTech AI Suite**")
+st.sidebar.markdown(f"Readmission: {len(ra_df):,} notes")
+st.sidebar.markdown(f"Diabetes: {len(db_df):,} patients")
 
 
-def risk_gauge(probability):
+def risk_gauge(probability, title="Risk Score"):
     fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=probability * 100,
-        domain={"x": [0, 1], "y": [0, 1]},
-        title={"text": "30-Day Readmission Risk"},
+        mode="gauge+number", value=probability * 100,
+        domain={"x": [0, 1], "y": [0, 1]}, title={"text": title},
         gauge={
-            "axis": {"range": [0, 100]},
-            "bar": {"color": "#1f77b4"},
+            "axis": {"range": [0, 100]}, "bar": {"color": "#1f77b4"},
             "steps": [
                 {"range": [0, 30], "color": "#2ecc71"},
                 {"range": [30, 60], "color": "#f39c12"},
@@ -86,51 +100,47 @@ def risk_gauge(probability):
     return fig
 
 
-if page == "📊 Dashboard":
-    st.title("📊 Patient Readmission Dashboard")
-    st.markdown("AI-powered 30-day readmission prediction from clinical discharge notes using NLP.")
+if page == "📊 Overview":
+    st.title("🏥 MedTech AI Suite — Overview")
+    st.markdown("Two AI models for healthcare: **Readmission Prediction** (NLP) + **Diabetes Prediction** (clinical data)")
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Patients", f"{len(df):,}")
-    col2.metric("Readmission Rate", f"{df['readmission_30d'].mean():.1%}")
-    col3.metric("Features", len(feature_names))
-    col4.metric("Best Model", results.iloc[0]["model"].replace("_", " ").title())
+    col1, col2 = st.columns(2)
 
-    best_roc = results.iloc[0]["roc_auc"]
-    st.metric("🏆 Best ROC-AUC", f"{best_roc:.4f}")
+    with col1:
+        st.subheader("📝 Readmission Predictor (NLP)")
+        st.metric("Patients", f"{len(ra_df):,}")
+        st.metric("Readmission Rate", f"{ra_df['readmission_30d'].mean():.1%}")
+        st.metric("Features", len(ra_feat))
+        st.metric("Best ROC-AUC", f"{ra_results.iloc[0]['roc_auc']:.4f}")
 
-    st.markdown("---")
-    col_l, col_r = st.columns(2)
-
-    with col_l:
-        st.subheader("Readmission Distribution")
-        counts = df["readmission_label"].value_counts()
-        fig = px.bar(x=counts.index, y=counts.values, color=counts.index,
-                     color_discrete_map={"NOT READMITTED": "#2ecc71", "READMITTED": "#e74c3c"},
-                     labels={"x": "", "y": "Count"})
-        fig.update_layout(showlegend=False, height=350)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_r:
-        st.subheader("Model Performance (ROC-AUC)")
-        fig = px.bar(results, x="model", y="roc_auc", color="model",
-                     labels={"model": "Model", "roc_auc": "ROC-AUC"}, range_y=[0.5, 1.0])
-        fig.update_layout(showlegend=False, height=350)
-        st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        st.subheader("🩺 Diabetes Predictor (Real Data)")
+        st.metric("Patients", f"{len(db_df):,}")
+        st.metric("Diabetes Rate", f"{db_df['diabetes'].mean():.1%}")
+        st.metric("Features", len(db_feat))
+        st.metric("Best ROC-AUC", f"{db_results.iloc[0]['roc_auc']:.4f}")
 
     st.markdown("---")
-    st.subheader("Quick Stats")
-    st.dataframe(results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].style.format({
-        "accuracy": "{:.4f}", "precision": "{:.4f}", "recall": "{:.4f}",
-        "f1": "{:.4f}", "roc_auc": "{:.4f}",
-    }), use_container_width=True)
+    st.subheader("Model Performance Comparison")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Readmission (NLP)**")
+        st.dataframe(ra_results[["model", "roc_auc", "f1", "accuracy"]].style.format({
+            "roc_auc": "{:.4f}", "f1": "{:.4f}", "accuracy": "{:.4f}"
+        }), use_container_width=True)
+
+    with col2:
+        st.markdown("**Diabetes (Clinical)**")
+        st.dataframe(db_results[["model", "roc_auc", "f1", "accuracy"]].style.format({
+            "roc_auc": "{:.4f}", "f1": "{:.4f}", "accuracy": "{:.4f}"
+        }), use_container_width=True)
 
 
-elif page == "📝 Predict from Note":
-    st.title("📝 Predict Readmission from Clinical Note")
-    st.markdown("Paste a patient's discharge summary → get instant readmission risk prediction.")
+elif page == "📝 Readmission Predictor":
+    st.title("📝 Readmission Prediction from Clinical Notes")
+    st.markdown("Paste a discharge summary → get 30-day readmission risk prediction.")
 
-    # Text area for clinical note input
     default_note = """DISCHARGE SUMMARY
 
 PATIENT: 55555
@@ -142,19 +152,16 @@ DISCHARGE DIAGNOSIS:
 congestive heart failure
 
 HOSPITAL COURSE:
-Patient was admitted with congestive heart failure. During hospitalization, patient underwent appropriate workup and treatment. Response to treatment was partial. Patient remains at risk for complications.
+Patient was admitted with congestive heart failure. Response to treatment was partial. Patient remains at risk for complications.
 
 DISCHARGE MEDICATIONS:
 ejection fraction of 25%, NT-proBNP elevated at 4500, poor medication adherence noted
-
-DISCHARGE INSTRUCTIONS:
-Patient was instructed to follow up with primary care physician within 3 days and monitor closely for any warning signs.
 
 FOLLOW-UP:
 Cardiology and nephrology follow-up scheduled. Home health services arranged.
 
 SOCIAL HISTORY:
-patient has history of multiple readmissions. Patient is a 72-year-old male with history of congestive heart failure.
+patient has history of multiple readmissions. Patient is a 72-year-old male.
 
 PHYSICAL EXAM:
 Vitals at discharge: BP 160/95, HR 88, RR 22, Temp 37.8C, SpO2 90% on room air.
@@ -165,178 +172,230 @@ WBC 15, HbA1c 8.5%, Creatinine 2.8, BNP 5200
 ASSESSMENT:
 Close follow-up and medication reconciliation recommended. Consider case management referral.
 """
-
-    user_note = st.text_area("Paste Discharge Summary:", value=default_note, height=400)
+    user_note = st.text_area("Paste Discharge Summary:", value=default_note, height=350)
 
     if st.button("🚀 Predict Readmission Risk", type="primary"):
         with st.spinner("Analyzing clinical note..."):
-            # Process the note
             cleaned = clean_clinical_text(user_note)
-            tfidf_vec = vectorizer.transform([cleaned])
+            tfidf_vec = ra_vec.transform([cleaned])
             clinical_feats = extract_clinical_features(user_note)
             clinical_df = pd.DataFrame([clinical_feats])
-
-            tfidf_df = pd.DataFrame(
-                tfidf_vec.toarray(),
-                columns=[f"tfidf_{w}" for w in vectorizer.get_feature_names_out()],
-            )
+            tfidf_df = pd.DataFrame(tfidf_vec.toarray(), columns=[f"tfidf_{w}" for w in ra_vec.get_feature_names_out()])
             combined = pd.concat([clinical_df.reset_index(drop=True), tfidf_df.reset_index(drop=True)], axis=1)
-
-            # Ensure all features are present (fill missing with 0)
-            for f in feature_names:
+            for f in ra_feat:
                 if f not in combined.columns:
                     combined[f] = 0
-            input_features = combined[feature_names].values
+            input_features = combined[ra_feat].values
 
-            # Predict
-            prediction = best_model.predict(input_features)[0]
-            probability = best_model.predict_proba(input_features)[0, 1]
+            prediction = ra_best.predict(input_features)[0]
+            probability = ra_best.predict_proba(input_features)[0, 1]
 
-            # Display result
             col_res, col_gauge = st.columns([1, 1])
-
             with col_res:
                 if prediction == 1:
                     st.error("⚠️ HIGH RISK — Readmission Likely")
                     st.markdown(f"**30-day readmission probability: {probability:.1%}**")
-                    st.markdown("Recommendations: Close follow-up, medication reconciliation, case management referral.")
                 else:
                     st.success("✅ LOW RISK — Readmission Unlikely")
                     st.markdown(f"**30-day readmission probability: {probability:.1%}**")
-                    st.markdown("Routine follow-up recommended.")
-
             with col_gauge:
-                st.plotly_chart(risk_gauge(probability), use_container_width=True)
+                st.plotly_chart(risk_gauge(probability, "30-Day Readmission Risk"), use_container_width=True)
 
-            st.markdown("---")
             st.subheader("🔍 Extracted Clinical Features")
-            feats_display = {k: v for k, v in clinical_feats.items()}
-            st.dataframe(pd.DataFrame([feats_display]).T.rename(columns={0: "Value"}), use_container_width=True)
+            st.dataframe(pd.DataFrame([clinical_feats]).T.rename(columns={0: "Value"}), use_container_width=True)
 
-            # SHAP explanation (if tree model)
+
+elif page == "🩺 Diabetes Predictor":
+    st.title("🩺 Diabetes Risk Predictor")
+    st.markdown("Enter patient vitals → get diabetes risk prediction. **Model trained on 100,000 real patients.**")
+    st.metric("Model ROC-AUC", f"{db_results.iloc[0]['roc_auc']:.4f}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Patient Vitals")
+        age = st.slider("Age", 0, 100, 50)
+        bmi = st.slider("BMI", 10.0, 60.0, 27.0, 0.1)
+        hba1c = st.slider("HbA1c Level (%)", 3.0, 15.0, 5.5, 0.1)
+        glucose = st.slider("Blood Glucose Level (mg/dL)", 50, 300, 140)
+        hypertension = st.selectbox("Hypertension", ["No", "Yes"])
+        heart_disease = st.selectbox("Heart Disease", ["No", "Yes"])
+
+    with col2:
+        st.subheader("Demographics")
+        gender = st.selectbox("Gender", ["Female", "Male", "Other"])
+        smoking = st.selectbox("Smoking History", [
+            "never", "No Info", "current", "former", "not current", "ever"
+        ])
+
+    if st.button("🚀 Predict Diabetes Risk", type="primary"):
+        with st.spinner("Running prediction..."):
+            # Build input
+            input_df = pd.DataFrame([{
+                "gender": gender,
+                "age": float(age),
+                "hypertension": 1 if hypertension == "Yes" else 0,
+                "heart_disease": 1 if heart_disease == "Yes" else 0,
+                "smoking_history": smoking,
+                "bmi": bmi,
+                "HbA1c_level": hba1c,
+                "blood_glucose_level": glucose,
+            }])
+
+            # Transform through preprocessor
+            input_processed = db_prep.transform(input_df)
+            input_processed = np.nan_to_num(input_processed.astype(np.float32), nan=-999)
+
+            prediction = db_best.predict(input_processed)[0]
+            probability = db_best.predict_proba(input_processed)[0, 1]
+
+            col_res, col_gauge = st.columns([1, 1])
+            with col_res:
+                if prediction == 1:
+                    st.error("⚠️ HIGH RISK — Diabetes Likely")
+                    st.markdown(f"**Diabetes probability: {probability:.1%}**")
+                    st.markdown("Recommend: Confirm with fasting glucose test + HbA1c. Refer to endocrinologist.")
+                else:
+                    st.success("✅ LOW RISK — Diabetes Unlikely")
+                    st.markdown(f"**Diabetes probability: {probability:.1%}**")
+                    st.markdown("Routine screening recommended at next checkup.")
+            with col_gauge:
+                st.plotly_chart(risk_gauge(probability, "Diabetes Risk Score"), use_container_width=True)
+
+            # SHAP explanation
             st.markdown("---")
             st.subheader("🔍 SHAP Explanation — Key Risk Factors")
             try:
-                explainer = shap.TreeExplainer(best_model)
-                shap_values = explainer.shap_values(input_features)
+                explainer = shap.TreeExplainer(db_best)
+                shap_values = explainer.shap_values(input_processed)
                 if isinstance(shap_values, list):
                     shap_values = shap_values[1]
                 sv = shap_values[0] if shap_values.ndim > 1 else shap_values
+                base = explainer.expected_value
+                if isinstance(base, (list, np.ndarray)):
+                    base = base[1]
 
-                contributions = pd.DataFrame({
-                    "Feature": feature_names,
-                    "SHAP Value": sv,
-                    "Impact": ["↑ increases risk" if v > 0 else "↓ decreases risk" for v in sv],
-                }).assign(Abs=lambda x: x["SHAP Value"].abs()).sort_values("Abs", ascending=False).head(15)
-
-                st.dataframe(contributions[["Feature", "SHAP Value", "Impact"]].style.format({
-                    "SHAP Value": "{:.4f}",
-                }), use_container_width=True)
-
-                fig, ax = plt.subplots(figsize=(10, 6))
+                fig, ax = plt.subplots(figsize=(10, 5))
                 shap.waterfall_plot(
-                    shap.Explanation(
-                        values=sv, base_values=explainer.expected_value,
-                        data=input_features[0], feature_names=feature_names,
-                    ),
-                    max_display=15, show=False,
+                    shap.Explanation(values=sv, base_values=base,
+                                     data=input_processed[0], feature_names=db_feat),
+                    max_display=8, show=False,
                 )
                 plt.tight_layout()
                 st.pyplot(fig, use_container_width=True)
                 plt.close()
+
+                contributions = pd.DataFrame({
+                    "Feature": db_feat,
+                    "SHAP Value": sv,
+                    "Impact": ["↑ increases risk" if v > 0 else "↓ decreases risk" for v in sv],
+                }).assign(Abs=lambda x: x["SHAP Value"].abs()).sort_values("Abs", ascending=False).head(8)
+                st.dataframe(contributions[["Feature", "SHAP Value", "Impact"]].style.format({
+                    "SHAP Value": "{:.4f}"
+                }), use_container_width=True)
             except Exception as e:
-                st.info(f"SHAP explanation available for tree-based models. Current model: {type(best_model).__name__}")
+                st.info(f"SHAP explanation: {e}")
 
 
 elif page == "📈 Model Comparison":
     st.title("📈 Model Comparison")
-    st.markdown("Performance across all trained models.")
 
-    st.subheader("Metrics")
-    display_df = results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].copy()
-    display_df["model"] = display_df["model"].str.replace("_", " ").str.title()
-    st.dataframe(display_df.style.format({
+    st.subheader("📝 Readmission Predictor (NLP)")
+    st.dataframe(ra_results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].style.format({
         "accuracy": "{:.4f}", "precision": "{:.4f}", "recall": "{:.4f}",
         "f1": "{:.4f}", "roc_auc": "{:.4f}",
     }), use_container_width=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("ROC-AUC Comparison")
-        fig = px.bar(results, x="model", y="roc_auc", color="model", range_y=[0.5, 1.0])
-        fig.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig, use_container_width=True)
+    st.subheader("🩺 Diabetes Predictor (Real Data)")
+    st.dataframe(db_results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].style.format({
+        "accuracy": "{:.4f}", "precision": "{:.4f}", "recall": "{:.4f}",
+        "f1": "{:.4f}", "roc_auc": "{:.4f}",
+    }), use_container_width=True)
 
-    with col2:
-        st.subheader("F1 Score Comparison")
-        fig = px.bar(results, x="model", y="f1", color="model")
-        fig.update_layout(showlegend=False, height=400)
-        st.plotly_chart(fig, use_container_width=True)
+    # ROC-AUC comparison chart
+    st.markdown("---")
+    st.subheader("ROC-AUC Comparison")
+    combined_results = pd.concat([
+        ra_results.assign(project="Readmission (NLP)"),
+        db_results.assign(project="Diabetes (Clinical)"),
+    ])
+    fig = px.bar(combined_results, x="model", y="roc_auc", color="project",
+                 barmode="group", range_y=[0.5, 1.0],
+                 labels={"model": "Model", "roc_auc": "ROC-AUC", "project": "Project"})
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, use_container_width=True)
 
 
 elif page == "🔍 Feature Importance":
     st.title("🔍 Feature Importance")
-    st.markdown("Which features drive readmission predictions?")
 
-    # Get feature importance from best model
-    if hasattr(best_model, "feature_importances_"):
-        importance = best_model.feature_importances_
-        imp_df = pd.DataFrame({
-            "Feature": feature_names,
-            "Importance": importance,
-        }).sort_values("Importance", ascending=False).head(30)
+    project = st.selectbox("Select project", ["Diabetes Predictor", "Readmission Predictor"])
 
-        st.subheader("Top 30 Features")
-        fig = px.bar(imp_df.head(20), x="Importance", y="Feature", orientation="h",
-                     color="Importance", color_continuous_scale="Viridis")
-        fig.update_layout(height=600, yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.dataframe(imp_df.style.format({"Importance": "{:.4f}"}), use_container_width=True)
-    else:
-        # Logistic regression — use coefficients
-        if hasattr(best_model, "coef_"):
-            coef = best_model.coef_[0]
-            imp_df = pd.DataFrame({
-                "Feature": feature_names,
-                "Coefficient": coef,
-                "AbsCoefficient": np.abs(coef),
-            }).sort_values("AbsCoefficient", ascending=False).head(30)
-
-            st.subheader("Top 30 Features (by coefficient magnitude)")
-            fig = px.bar(imp_df.head(20), x="AbsCoefficient", y="Feature", orientation="h",
-                         color="AbsCoefficient", color_continuous_scale="Viridis")
-            fig.update_layout(height=600, yaxis=dict(autorange="reversed"))
+    if project == "Diabetes Predictor":
+        if hasattr(db_best, "feature_importances_"):
+            imp = db_best.feature_importances_
+            imp_df = pd.DataFrame({"Feature": db_feat, "Importance": imp}).sort_values("Importance", ascending=False)
+            fig = px.bar(imp_df, x="Importance", y="Feature", orientation="h",
+                         color="Importance", color_continuous_scale="Viridis")
+            fig.update_layout(height=400, yaxis=dict(autorange="reversed"))
             st.plotly_chart(fig, use_container_width=True)
-
-            st.dataframe(imp_df[["Feature", "Coefficient"]].style.format({"Coefficient": "{:.4f}"}), use_container_width=True)
+            st.dataframe(imp_df.style.format({"Importance": "{:.4f}"}), use_container_width=True)
         else:
-            st.warning("Feature importance not available for this model type.")
+            st.info("Feature importance available for tree models.")
+
+    else:
+        if hasattr(ra_best, "coef_"):
+            coef = ra_best.coef_[0]
+            imp_df = pd.DataFrame({"Feature": ra_feat, "Coefficient": coef}).assign(Abs=lambda x: x.Coefficient.abs()).sort_values("Abs", ascending=False).head(20)
+            fig = px.bar(imp_df, x="Abs", y="Feature", orientation="h", color="Abs", color_continuous_scale="Viridis")
+            fig.update_layout(height=500, yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True)
+        elif hasattr(ra_best, "feature_importances_"):
+            imp = ra_best.feature_importances_
+            imp_df = pd.DataFrame({"Feature": ra_feat, "Importance": imp}).sort_values("Importance", ascending=False).head(20)
+            fig = px.bar(imp_df, x="Importance", y="Feature", orientation="h", color="Importance", color_continuous_scale="Viridis")
+            fig.update_layout(height=500, yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig, use_container_width=True)
 
 
 elif page == "📋 Data Explorer":
-    st.title("📋 Clinical Notes Explorer")
-    st.markdown("Browse the synthetic clinical discharge notes dataset.")
+    st.title("📋 Data Explorer")
 
-    # Filter
-    filter_label = st.selectbox("Filter by readmission status", ["All", "READMITTED", "NOT READMITTED"])
-    if filter_label == "All":
-        display_df = df
+    dataset = st.selectbox("Select dataset", ["Diabetes (100K real patients)", "Readmission (5K synthetic notes)"])
+
+    if "Diabetes" in dataset:
+        st.metric("Total patients", f"{len(db_df):,}")
+        st.metric("Diabetes rate", f"{db_df['diabetes'].mean():.1%}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Age Distribution by Diabetes Status")
+            fig = px.histogram(db_df, x="age", color="diabetes", nbins=50,
+                               color_discrete_map={0: "#2ecc71", 1: "#e74c3c"},
+                               labels={"diabetes": "Diabetes"})
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            st.subheader("HbA1c vs Blood Glucose")
+            sample = db_df.sample(min(5000, len(db_df)))
+            fig = px.scatter(sample, x="HbA1c_level", y="blood_glucose_level", color="diabetes",
+                             color_discrete_map={0: "#2ecc71", 1: "#e74c3c"},
+                             labels={"diabetes": "Diabetes"}, opacity=0.5)
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.dataframe(db_df.head(20), use_container_width=True)
+
     else:
-        display_df = df[df["readmission_label"] == filter_label]
+        st.metric("Total notes", f"{len(ra_df):,}")
+        filter_label = st.selectbox("Filter", ["All", "READMITTED", "NOT READMITTED"])
+        display = ra_df if filter_label == "All" else ra_df[ra_df["readmission_label"] == filter_label]
 
-    st.metric("Patients shown", f"{len(display_df):,}")
-
-    # Show a random note
-    if len(display_df) > 0:
-        idx = st.slider("Select patient", 0, len(display_df) - 1, 0)
-        note = display_df.iloc[idx]
-
-        col1, col2, col3 = st.columns(3)
+        idx = st.slider("Select patient", 0, max(0, len(display) - 1), 0)
+        note = display.iloc[idx]
+        col1, col2 = st.columns(3)
         col1.metric("Patient ID", note["patient_id"])
         col2.metric("Readmission", note["readmission_label"])
         col3.metric("Note Length", f"{len(note['discharge_note'])} chars")
 
-        st.markdown("---")
-        st.subheader("Discharge Summary")
-        st.text_area("Clinical Note", value=note["discharge_note"], height=500, key=f"note_{idx}")
+        st.text_area("Clinical Note", value=note["discharge_note"], height=400, key=f"explorer_{idx}")
