@@ -33,3 +33,4 @@ nul
 .ipynb_checkpoints/
 
 # Allow scripts and config
+data/brfss.zip

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "medai"
-version = "2.0.0"
-description = "Enterprise Medical AI — Diabetes & Readmission Prediction with NLP, SHAP, FastAPI"
+version = "3.0.0"
+description = "Enterprise Medical AI v3 — Diabetes Prediction on 500K patients, SHAP explainability, FastAPI REST API, CLI, Docker, CI/CD"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"

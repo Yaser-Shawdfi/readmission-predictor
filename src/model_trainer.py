@@ -1,6 +1,6 @@
 """
-Enterprise model trainer — multi-model, SHAP, full metrics.
-Supports: diabetes, breast cancer, clinical notes (NLP).
+Enterprise model trainer — multi-model, SHAP, full metrics, persistence.
+Supports: XGBoost, LightGBM, Logistic Regression.
 """
 
 import logging
@@ -19,6 +19,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
+    brier_score_loss,
     confusion_matrix,
     f1_score,
     precision_score,
@@ -37,7 +38,7 @@ REPORTS_DIR = Path("reports")
 
 
 class ModelTrainer:
-    """Train, evaluate, and explain multiple ML models."""
+    """Train, evaluate, and explain multiple ML models with full metrics."""
 
     def __init__(self, random_state: int = 42):
         self.random_state = random_state
@@ -48,26 +49,10 @@ class ModelTrainer:
         self.best_name: str = ""
         self.feature_names: List[str] = []
 
-    def _build_preprocessor(
-        self, cat_features: List[str], num_features: List[str]
-    ) -> ColumnTransformer:
-        transformers = [("num", "passthrough", num_features)]
-        if cat_features:
-            transformers.append(
-                (
-                    "cat",
-                    OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
-                    cat_features,
-                )
-            )
-        return ColumnTransformer(transformers=transformers, remainder="drop")
-
     def _get_models(self) -> Dict[str, Any]:
         return {
             "logistic_regression": LogisticRegression(
-                random_state=self.random_state,
-                max_iter=1000,
-                C=1.0,
+                random_state=self.random_state, max_iter=1000, C=1.0
             ),
             "xgboost": xgb.XGBClassifier(
                 n_estimators=300,
@@ -98,11 +83,11 @@ class ModelTrainer:
         y_test: np.ndarray,
         feature_names: List[str],
     ) -> Tuple[pd.DataFrame, Dict]:
-        """Train all models, return comparison results + trained models."""
+        """Train all models, evaluate, save best. Returns (results_df, trained_models)."""
         cat_features = list(X_train.select_dtypes(include=["object", "str"]).columns)
         num_features = [c for c in X_train.columns if c not in cat_features]
 
-        # Build and fit preprocessor
+        # Build preprocessor
         transformer_specs = [("num", "passthrough", num_features)]
         if cat_features:
             transformer_specs.append(
@@ -132,7 +117,9 @@ class ModelTrainer:
             metrics = self._evaluate(model, X_test_p, y_test, name)
             all_metrics.append(metrics)
             self.models[name] = model
-            logger.info(f"  ROC-AUC: {metrics['roc_auc']:.4f} | F1: {metrics['f1']:.4f}")
+            logger.info(
+                f"  ROC-AUC: {metrics['roc_auc']:.4f} | F1: {metrics['f1']:.4f} | Recall: {metrics['recall']:.4f}"
+            )
 
         self.results = (
             pd.DataFrame(all_metrics).sort_values("roc_auc", ascending=False).reset_index(drop=True)
@@ -141,7 +128,6 @@ class ModelTrainer:
         self.best_model = self.models[self.best_name]
         joblib.dump(self.best_model, MODELS_DIR / "best_model.joblib")
         self.results.to_csv(MODELS_DIR / "model_comparison.csv", index=False)
-
         logger.info(f"Best: {self.best_name} (ROC-AUC: {self.results.iloc[0]['roc_auc']:.4f})")
         return self.results, self.models
 
@@ -154,9 +140,10 @@ class ModelTrainer:
             "accuracy": accuracy_score(y_test, y_pred),
             "precision": precision_score(y_test, y_pred, zero_division=0),
             "recall": recall_score(y_test, y_pred, zero_division=0),
-            "f1": f1_score(y_test, y_pred, zero_division=0),
+            "f1": f1_score(y_test, y_pred),
             "roc_auc": roc_auc_score(y_test, y_proba),
             "avg_precision": average_precision_score(y_test, y_proba),
+            "brier_score": brier_score_loss(y_test, y_proba),
             "tn": int(cm[0, 0]),
             "fp": int(cm[0, 1]),
             "fn": int(cm[1, 0]),
@@ -186,12 +173,7 @@ class ModelTrainer:
 
         mean_abs = np.abs(shap_values).mean(axis=0)
         importance = (
-            pd.DataFrame(
-                {
-                    "feature": self.feature_names,
-                    "mean_abs_shap": mean_abs,
-                }
-            )
+            pd.DataFrame({"feature": self.feature_names, "mean_abs_shap": mean_abs})
             .sort_values("mean_abs_shap", ascending=False)
             .reset_index(drop=True)
         )
@@ -211,6 +193,7 @@ class ModelTrainer:
             plt.tight_layout()
             plt.savefig(REPORTS_DIR / "shap_importance.png", dpi=150, bbox_inches="tight")
             plt.close()
+            logger.info(f"Saved SHAP plot to {REPORTS_DIR / 'shap_importance.png'}")
 
         return importance
 
@@ -241,7 +224,7 @@ class ModelTrainer:
                     "direction": ["↑ increases risk" if v > 0 else "↓ decreases risk" for v in sv],
                 }
             )
-            .assign(abs_shap=lambda x: x.shap_value.abs())
+            .assign(abs_shap=lambda d: d.shap_value.abs())
             .sort_values("abs_shap", ascending=False)
         )
 
@@ -250,7 +233,10 @@ class ModelTrainer:
             fig, ax = plt.subplots(figsize=(10, 6))
             shap.waterfall_plot(
                 shap.Explanation(
-                    values=sv, base_values=base, data=X[0], feature_names=self.feature_names
+                    values=sv,
+                    base_values=base,
+                    data=X[0],
+                    feature_names=self.feature_names,
                 ),
                 max_display=15,
                 show=False,
