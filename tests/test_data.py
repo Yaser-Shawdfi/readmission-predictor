@@ -1,7 +1,9 @@
 """Tests for data loader module."""
-import pytest
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+import pytest
+
 from src.data_loader import DataLoader
 
 
@@ -23,12 +25,15 @@ def test_target_col():
 
 def test_get_features():
     dates = pd.date_range("2024-01-01", periods=100, freq="D")
-    df = pd.DataFrame({
-        "age": np.random.randint(20, 80, 100).astype(np.int64),
-        "bmi": np.random.uniform(15, 40, 100).astype(np.float64),
-        "gender": np.random.choice(["M", "F"], 100),
-        "diabetes": np.random.randint(0, 2, 100).astype(np.int64),
-    }, index=dates)
+    df = pd.DataFrame(
+        {
+            "age": np.random.randint(20, 80, 100).astype(np.int64),
+            "bmi": np.random.uniform(15, 40, 100).astype(np.float64),
+            "gender": np.random.choice(["M", "F"], 100),
+            "diabetes": np.random.randint(0, 2, 100).astype(np.int64),
+        },
+        index=dates,
+    )
     loader = DataLoader("diabetes_100k")
     cat, num = loader.get_features(df)
     assert "gender" in cat

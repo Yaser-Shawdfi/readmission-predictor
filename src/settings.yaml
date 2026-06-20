@@ -2,8 +2,8 @@
 # Environment variables override: MEDAI__SECTION__KEY=value
 
 dataset:
-  name: "diabetes_100k"
-  path: "data/diabetes_100k.csv"
+  name: "diabetes_500k"
+  path: "data/diabetes_500k.csv"
   target: "diabetes"
   categorical: ["gender", "smoking_history"]
   numeric:

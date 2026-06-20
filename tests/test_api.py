@@ -1,9 +1,11 @@
 """Tests for API endpoints."""
+
 import pytest
 from fastapi.testclient import TestClient
 
 try:
     from src.api import app
+
     client = TestClient(app)
     _AVAILABLE = True
 except Exception:

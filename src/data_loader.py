@@ -15,6 +15,11 @@ class DataLoader:
     """Multi-dataset loader for real medical data."""
 
     SUPPORTED = {
+        "diabetes_500k": {
+            "path": "data/diabetes_500k.csv",
+            "target": "diabetes",
+            "categorical": ["gender", "smoking_history"],
+        },
         "diabetes_100k": {
             "path": "data/diabetes_100k.csv",
             "target": "diabetes",

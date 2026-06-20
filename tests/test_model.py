@@ -1,7 +1,9 @@
 """Tests for model trainer module."""
-import pytest
+
 import numpy as np
 import pandas as pd
+import pytest
+
 from src.model_trainer import ModelTrainer
 
 
@@ -9,12 +11,14 @@ from src.model_trainer import ModelTrainer
 def sample_data():
     np.random.seed(42)
     n = 200
-    df = pd.DataFrame({
-        "age": np.random.randint(20, 80, n),
-        "bmi": np.random.uniform(15, 40, n),
-        "glucose": np.random.randint(70, 200, n),
-        "gender": np.random.choice(["M", "F"], n),
-    })
+    df = pd.DataFrame(
+        {
+            "age": np.random.randint(20, 80, n),
+            "bmi": np.random.uniform(15, 40, n),
+            "glucose": np.random.randint(70, 200, n),
+            "gender": np.random.choice(["M", "F"], n),
+        }
+    )
     y = ((df["glucose"] > 140) & (df["age"] > 50)).astype(int).values
     return df, y
 

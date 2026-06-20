@@ -31,7 +31,7 @@ _trainer: Optional[ModelTrainer] = None
 _loader: Optional[DataLoader] = None
 
 
-def _get_trainer(dataset_name: str = "diabetes_100k") -> ModelTrainer:
+def _get_trainer(dataset_name: str = "diabetes_500k") -> ModelTrainer:
     global _trainer, _loader
     if _trainer is None:
         _loader = DataLoader(dataset_name)
