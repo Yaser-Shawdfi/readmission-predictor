@@ -25,7 +25,7 @@ from src.model_trainer import ModelTrainer
 
 MODELS_DIR = PROJECT_ROOT / "models"
 
-st.set_page_config(page_title="MedAI v3", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="MedAI v3", page_icon="", layout="wide")
 
 
 @st.cache_data
@@ -48,15 +48,15 @@ with st.spinner("Loading 500K patient dataset and training models..."):
     df, X_train, X_test, y_train, y_test, feature_names, results, trainer = get_pipeline("diabetes_500k")
 
 
-st.sidebar.title("🏥 MedAI v3")
+st.sidebar.title(" MedAI v3")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate", [
-    "📊 Overview",
-    "🩺 Diabetes Predictor",
-    "📈 Model Comparison",
-    "🔍 Feature Importance",
-    "📋 Data Explorer",
-    "🔌 API Reference",
+    " Overview",
+    " Diabetes Predictor",
+    " Model Comparison",
+    " Feature Importance",
+    " Data Explorer",
+    " API Reference",
 ])
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Enterprise MedAI v3**")
@@ -84,8 +84,8 @@ def risk_gauge(probability, title="Risk Score"):
 
 
 # ─── Overview ────────────────────────────────────────────────────────────────
-if page == "📊 Overview":
-    st.title("📊 MedAI v3 — Enterprise Medical AI")
+if page == " Overview":
+    st.title(" MedAI v3 — Enterprise Medical AI")
     st.markdown("AI-powered diabetes prediction trained on **500,000 patients** with SHAP explainability.")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -94,7 +94,7 @@ if page == "📊 Overview":
     col3.metric("Features", len(feature_names))
     col4.metric("Best Model", results.iloc[0]["model"].replace("_", " ").title())
 
-    st.metric("🏆 Best ROC-AUC", f"{results.iloc[0]['roc_auc']:.4f}")
+    st.metric(" Best ROC-AUC", f"{results.iloc[0]['roc_auc']:.4f}")
 
     st.markdown("---")
     col_l, col_r = st.columns(2)
@@ -126,22 +126,22 @@ if page == "📊 Overview":
     st.subheader("Enterprise Features")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("✅ Python package (pyproject.toml)")
-        st.markdown("✅ FastAPI REST API (7 endpoints)")
-        st.markdown("✅ CLI tool (medai command)")
+        st.markdown(" Python package (pyproject.toml)")
+        st.markdown(" FastAPI REST API (7 endpoints)")
+        st.markdown(" CLI tool (medai command)")
     with col2:
-        st.markdown("✅ 10 unit tests (pytest)")
-        st.markdown("✅ Docker + docker-compose")
-        st.markdown("✅ CI/CD (GitHub Actions)")
+        st.markdown(" 10 unit tests (pytest)")
+        st.markdown(" Docker + docker-compose")
+        st.markdown(" CI/CD (GitHub Actions)")
     with col3:
-        st.markdown("✅ YAML config + env overrides")
-        st.markdown("✅ Structured logging")
-        st.markdown("✅ SHAP explainability")
+        st.markdown(" YAML config + env overrides")
+        st.markdown(" Structured logging")
+        st.markdown(" SHAP explainability")
 
 
 # ─── Diabetes Predictor ─────────────────────────────────────────────────────
-elif page == "🩺 Diabetes Predictor":
-    st.title("🩺 Diabetes Risk Predictor")
+elif page == " Diabetes Predictor":
+    st.title(" Diabetes Risk Predictor")
     st.markdown("Enter patient vitals → get diabetes risk prediction with SHAP explanation. **Trained on 500K patients.**")
 
     col1, col2 = st.columns(2)
@@ -161,7 +161,7 @@ elif page == "🩺 Diabetes Predictor":
             "never", "No Info", "current", "former", "not current", "ever"
         ])
 
-    if st.button("🚀 Predict Diabetes Risk", type="primary"):
+    if st.button(" Predict Diabetes Risk", type="primary"):
         with st.spinner("Running prediction on 500K-trained model..."):
             input_df = pd.DataFrame([{
                 "gender": gender,
@@ -181,11 +181,11 @@ elif page == "🩺 Diabetes Predictor":
             col_res, col_gauge = st.columns([1, 1])
             with col_res:
                 if result["prediction"] == 1:
-                    st.error(f"⚠️ HIGH RISK — Diabetes Likely")
+                    st.error(f" HIGH RISK — Diabetes Likely")
                     st.markdown(f"**Diabetes probability: {prob:.1%}**")
                     st.markdown("Recommend: Confirm with fasting glucose test + HbA1c. Refer to endocrinologist.")
                 else:
-                    st.success(f"✅ LOW RISK — Diabetes Unlikely")
+                    st.success(f" LOW RISK — Diabetes Unlikely")
                     st.markdown(f"**Diabetes probability: {prob:.1%}**")
                     st.markdown("Routine screening recommended at next checkup.")
                 st.markdown(f"**Risk level: {risk.upper()}**")
@@ -194,7 +194,7 @@ elif page == "🩺 Diabetes Predictor":
 
             # SHAP explanation
             st.markdown("---")
-            st.subheader("🔍 SHAP Explanation — Key Risk Factors")
+            st.subheader(" SHAP Explanation — Key Risk Factors")
             try:
                 shap_result = trainer.explain_prediction_shap(input_df, save_plot=False)
                 contributions = shap_result["contributions"]
@@ -229,8 +229,8 @@ elif page == "🩺 Diabetes Predictor":
 
 
 # ─── Model Comparison ───────────────────────────────────────────────────────
-elif page == "📈 Model Comparison":
-    st.title("📈 Model Comparison")
+elif page == " Model Comparison":
+    st.title(" Model Comparison")
     st.markdown("Performance across all trained models on 500K patients.")
 
     st.subheader("Metrics")
@@ -257,8 +257,8 @@ elif page == "📈 Model Comparison":
 
 
 # ─── Feature Importance ─────────────────────────────────────────────────────
-elif page == "🔍 Feature Importance":
-    st.title("🔍 Feature Importance")
+elif page == " Feature Importance":
+    st.title(" Feature Importance")
     st.markdown("Which features drive diabetes predictions?")
 
     if hasattr(trainer.best_model, "feature_importances_"):
@@ -293,8 +293,8 @@ elif page == "🔍 Feature Importance":
 
 
 # ─── Data Explorer ──────────────────────────────────────────────────────────
-elif page == "📋 Data Explorer":
-    st.title("📋 Data Explorer — 500K Patients")
+elif page == " Data Explorer":
+    st.title(" Data Explorer — 500K Patients")
     st.markdown("Explore the 500,000-patient diabetes dataset.")
 
     st.metric("Total patients", f"{len(df):,}")
@@ -336,8 +336,8 @@ elif page == "📋 Data Explorer":
 
 
 # ─── API Reference ───────────────────────────────────────────────────────────
-elif page == "🔌 API Reference":
-    st.title("🔌 API Reference")
+elif page == " API Reference":
+    st.title(" API Reference")
     st.markdown("MedAI v3 exposes a REST API with 7 endpoints. Start the server with `medai api`.")
 
     st.code("""

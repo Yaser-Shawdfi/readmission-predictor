@@ -1,8 +1,8 @@
-# 🏥 MedAI v3 — Enterprise Medical AI
+#  MedAI v3 — Enterprise Medical AI
 
 AI-powered diabetes prediction on **500,000 patients** with SHAP explainability, FastAPI REST API, CLI, Docker, and CI/CD.
 
-## 📊 Overview
+# Overview
 
 | Component | Details |
 |-----------|---------|
@@ -17,7 +17,7 @@ AI-powered diabetes prediction on **500,000 patients** with SHAP explainability,
 | Deployment | Docker + docker-compose |
 | CI/CD | GitHub Actions (lint → test → Docker build) |
 
-## 🏗️ Architecture
+# Architecture
 
 ```
 readmission-predictor/
@@ -41,14 +41,14 @@ readmission-predictor/
 └── scripts/create_test_data.py # CI fallback data generator
 ```
 
-## 🚀 Quick Start
+# Quick Start
 
-### Install
+# Install
 ```bash
 pip install -e ".[dev]"
 ```
 
-### CLI Commands
+# CLI Commands
 ```bash
 medai datasets                           # List supported datasets
 medai train --dataset diabetes_500k      # Train models
@@ -58,7 +58,7 @@ medai api --port 8000                     # Start REST API
 medai ui --port 8501                      # Start Streamlit dashboard
 ```
 
-### REST API
+# REST API
 ```bash
 # Start
 uvicorn src.api:app --port 8000
@@ -74,18 +74,18 @@ curl -X POST http://localhost:8000/api/v1/predict \
 # Swagger docs: http://localhost:8000/docs
 ```
 
-### Docker
+# Docker
 ```bash
 docker-compose up          # API + UI
 docker-compose run test    # Run tests
 ```
 
-### Tests
+# Tests
 ```bash
 pytest tests/ -v            # 10/10 passing
 ```
 
-## 📊 Model Results (500K Patients)
+# Model Results (500K Patients)
 
 | Model | ROC-AUC | F1 | Precision | Recall | Avg Precision |
 |-------|---------|-----|-----------|--------|---------------|
@@ -93,6 +93,6 @@ pytest tests/ -v            # 10/10 passing
 | LightGBM | 0.8629 | 0.3848 | 0.7653 | 0.2570 | — |
 | LogReg | 0.8032 | 0.1474 | 0.5829 | 0.0844 | — |
 
-## 📄 License
+# License
 
 MIT
