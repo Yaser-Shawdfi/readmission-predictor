@@ -3,9 +3,10 @@ Generate a realistic synthetic clinical notes dataset for readmission prediction
 Creates 5,000 synthetic patient discharge summaries with readmission labels.
 """
 
-import pandas as pd
-import numpy as np
 import random
+
+import numpy as np
+import pandas as pd
 
 random.seed(42)
 np.random.seed(42)
@@ -140,7 +141,7 @@ LENGTH OF STAY: {los} days
 Patient was admitted with {diagnosis}. During hospitalization, patient underwent appropriate workup and treatment. {course}
 
 {SECTIONS[2]}
-{', '.join(selected_factors[:3])}
+{", ".join(selected_factors[:3])}
 
 {SECTIONS[3]}
 Patient was instructed to follow up with primary care physician within 3 days and monitor closely for any warning signs.
@@ -149,10 +150,10 @@ Patient was instructed to follow up with primary care physician within 3 days an
 {fu}
 
 {SECTIONS[5]}
-{selected_factors[0] if selected_factors else ''}. Patient is a {age}-year-old {sex} with history of {diagnosis}.
+{selected_factors[0] if selected_factors else ""}. Patient is a {age}-year-old {sex} with history of {diagnosis}.
 
 {SECTIONS[6]}
-{selected_factors[1] if len(selected_factors) > 1 else selected_factors[0] if selected_factors else ''}.
+{selected_factors[1] if len(selected_factors) > 1 else selected_factors[0] if selected_factors else ""}.
 
 {SECTIONS[7]}
 Vitals at discharge: BP {bp_sys}/{bp_dia}, HR {hr}, RR {rr}, Temp {temp:.1f}C, SpO2 {spo2}% on room air.
@@ -210,5 +211,5 @@ if __name__ == "__main__":
     print(f"  Readmitted: {df['readmission_30d'].sum()} ({df['readmission_30d'].mean():.1%})")
     print(f"  Not readmitted: {(1 - df['readmission_30d']).sum()}")
     print(f"  Saved to: {filepath}")
-    print(f"\nSample (readmitted):")
+    print("\nSample (readmitted):")
     print(df[df["readmission_30d"] == 1].iloc[0]["discharge_note"][:400])

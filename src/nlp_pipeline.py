@@ -3,14 +3,14 @@ NLP preprocessing pipeline for clinical notes.
 TF-IDF vectorization with clinical text cleaning + feature extraction.
 """
 
+import logging
 import re
-import numpy as np
+from pathlib import Path
+
+import joblib
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-import joblib
-from pathlib import Path
-import logging
 
 logger = logging.getLogger("readmission.nlp")
 
@@ -53,26 +53,48 @@ def extract_clinical_features(text: str) -> dict:
 
     # Risk keywords
     risk_keywords = [
-        "readmission", "poor medication adherence", "lives alone",
-        "against medical advice", "uncontrolled", "elevated creatinine",
-        "oxygen saturation below", "positive blood cultures", "ejection fraction",
-        "nt-probnp", "peripheral edema", "inability to perform",
-        "partial", "remains at risk", "case management",
+        "readmission",
+        "poor medication adherence",
+        "lives alone",
+        "against medical advice",
+        "uncontrolled",
+        "elevated creatinine",
+        "oxygen saturation below",
+        "positive blood cultures",
+        "ejection fraction",
+        "nt-probnp",
+        "peripheral edema",
+        "inability to perform",
+        "partial",
+        "remains at risk",
+        "case management",
     ]
     features["risk_keyword_count"] = sum(1 for kw in risk_keywords if kw in text_lower)
 
     # Protective keywords
     protective_keywords = [
-        "stable vitals", "excellent medication", "family support",
-        "normal limits", "ambulating independently", "well controlled",
-        "low risk", "routine follow-up", "motivated",
+        "stable vitals",
+        "excellent medication",
+        "family support",
+        "normal limits",
+        "ambulating independently",
+        "well controlled",
+        "low risk",
+        "routine follow-up",
+        "motivated",
     ]
     features["protective_keyword_count"] = sum(1 for kw in protective_keywords if kw in text_lower)
 
     # High-risk conditions
     high_risk_conditions = [
-        "heart failure", "copd", "diabetic ketoacidosis", "myocardial infarction",
-        "pneumonia", "kidney disease", "cirrhosis", "sepsis",
+        "heart failure",
+        "copd",
+        "diabetic ketoacidosis",
+        "myocardial infarction",
+        "pneumonia",
+        "kidney disease",
+        "cirrhosis",
+        "sepsis",
     ]
     features["high_risk_condition_count"] = sum(1 for c in high_risk_conditions if c in text_lower)
 
@@ -123,8 +145,12 @@ def prepare_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 4
     clinical_df = pd.DataFrame(list(clinical_feats))
 
     # Combine TF-IDF + clinical features
-    tfidf_df = pd.DataFrame(tfidf_matrix.toarray(), columns=[f"tfidf_{w}" for w in vectorizer.get_feature_names_out()])
-    combined = pd.concat([clinical_df.reset_index(drop=True), tfidf_df.reset_index(drop=True)], axis=1)
+    tfidf_df = pd.DataFrame(
+        tfidf_matrix.toarray(), columns=[f"tfidf_{w}" for w in vectorizer.get_feature_names_out()]
+    )
+    combined = pd.concat(
+        [clinical_df.reset_index(drop=True), tfidf_df.reset_index(drop=True)], axis=1
+    )
 
     feature_names = list(combined.columns)
     X = combined.values
@@ -136,7 +162,9 @@ def prepare_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 4
     )
 
     logger.info(f"Train: {X_train.shape}, Test: {X_test.shape}")
-    logger.info(f"Features: {len(feature_names)} ({len(clinical_df.columns)} clinical + {len(tfidf_df.columns)} TF-IDF)")
+    logger.info(
+        f"Features: {len(feature_names)} ({len(clinical_df.columns)} clinical + {len(tfidf_df.columns)} TF-IDF)"
+    )
 
     # Save vectorizer
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -149,6 +177,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     from pathlib import Path
+
     data_path = Path(__file__).resolve().parent.parent / "data" / "clinical_notes.csv"
     df = pd.read_csv(data_path)
 

@@ -1,0 +1,31 @@
+# MedAI — Enterprise Configuration
+# Environment variables override: MEDAI__SECTION__KEY=value
+
+dataset:
+  name: "diabetes_100k"
+  path: "data/diabetes_100k.csv"
+  target: "diabetes"
+  categorical: ["gender", "smoking_history"]
+  numeric:
+    - "age"
+    - "hypertension"
+    - "heart_disease"
+    - "bmi"
+    - "HbA1c_level"
+    - "blood_glucose_level"
+
+model:
+  algorithm: "lightgbm"
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.05
+  test_size: 0.2
+  random_state: 42
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s | %(name)s | %(levelname)s | %(message)s"

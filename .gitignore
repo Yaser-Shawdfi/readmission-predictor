@@ -1,7 +1,7 @@
-# Data files
+# Data
 data/*.csv
 
-# Model artifacts
+# Models
 models/*.joblib
 models/*.csv
 
@@ -14,6 +14,11 @@ __pycache__/
 *.pyo
 .pytest_cache/
 *.egg-info/
+build/
+dist/
+
+# Logs
+logs/
 
 # OS
 .DS_Store
@@ -26,3 +31,5 @@ nul
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Allow scripts and config

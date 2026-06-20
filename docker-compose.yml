@@ -1,0 +1,39 @@
+# MedAI — Docker Compose
+services:
+  api:
+    build: .
+    container_name: medai-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ui:
+    build: .
+    container_name: medai-ui
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    command: streamlit run app/app.py --server.port 8501 --server.headless true --server.address 0.0.0.0
+
+  test:
+    build: .
+    container_name: medai-test
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    command: pytest tests/ -v --tb=short
+    profiles:
+      - test

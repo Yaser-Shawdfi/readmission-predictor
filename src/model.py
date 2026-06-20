@@ -3,24 +3,22 @@ Readmission prediction model training.
 Trains Logistic Regression, XGBoost, and LightGBM on TF-IDF + clinical features.
 """
 
-import numpy as np
-import pandas as pd
-import joblib
 import logging
 from pathlib import Path
+
+import joblib
+import lightgbm as lgb
+import pandas as pd
+import xgboost as xgb
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    confusion_matrix,
-    classification_report,
 )
-import xgboost as xgb
-import lightgbm as lgb
 
 logger = logging.getLogger("readmission.model")
 
@@ -97,7 +95,9 @@ def train_and_compare(X_train, X_test, y_train, y_test, save=True):
             f"Recall: {metrics['recall']:.4f}"
         )
 
-    results = pd.DataFrame(all_metrics).sort_values("roc_auc", ascending=False).reset_index(drop=True)
+    results = (
+        pd.DataFrame(all_metrics).sort_values("roc_auc", ascending=False).reset_index(drop=True)
+    )
 
     if save:
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -120,7 +120,11 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test, features, vec = prepare_data(df)
     results, models = train_and_compare(X_train, X_test, y_train, y_test)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("MODEL COMPARISON")
-    print(f"{'='*60}")
-    print(results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].to_string(index=False))
+    print(f"{'=' * 60}")
+    print(
+        results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].to_string(
+            index=False
+        )
+    )

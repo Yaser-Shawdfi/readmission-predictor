@@ -5,23 +5,29 @@ Features: gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c,
 Target: diabetes (0/1)
 """
 
-import pandas as pd
-import numpy as np
-import joblib
 import logging
 from pathlib import Path
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OrdinalEncoder
+
+import joblib
+import lightgbm as lgb
+import matplotlib
+import numpy as np
+import pandas as pd
+import shap
+import xgboost as xgb
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix, classification_report,
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
-import xgboost as xgb
-import lightgbm as lgb
-import shap
-import matplotlib
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OrdinalEncoder
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -71,8 +77,11 @@ def preprocess(df, test_size=0.2):
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", "passthrough", num_features),
-            ("cat", OrdinalEncoder(handle_unknown="use_encoded_value",
-                                   unknown_value=-1), cat_features),
+            (
+                "cat",
+                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
+                cat_features,
+            ),
         ],
     )
 
@@ -94,17 +103,28 @@ def preprocess(df, test_size=0.2):
 def get_models():
     return {
         "logistic_regression": LogisticRegression(
-            random_state=RANDOM_STATE, max_iter=1000, C=1.0,
+            random_state=RANDOM_STATE,
+            max_iter=1000,
+            C=1.0,
         ),
         "xgboost": xgb.XGBClassifier(
-            n_estimators=300, max_depth=6, learning_rate=0.05,
-            subsample=0.8, colsample_bytree=0.8,
-            random_state=RANDOM_STATE, eval_metric="auc",
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=RANDOM_STATE,
+            eval_metric="auc",
         ),
         "lightgbm": lgb.LGBMClassifier(
-            n_estimators=300, max_depth=6, num_leaves=31,
-            learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
-            random_state=RANDOM_STATE, verbose=-1,
+            n_estimators=300,
+            max_depth=6,
+            num_leaves=31,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=RANDOM_STATE,
+            verbose=-1,
         ),
     }
 
@@ -120,8 +140,10 @@ def evaluate_model(model, X_test, y_test, name="model"):
         "recall": recall_score(y_test, y_pred, zero_division=0),
         "f1": f1_score(y_test, y_pred, zero_division=0),
         "roc_auc": roc_auc_score(y_test, y_proba),
-        "tn": int(cm[0, 0]), "fp": int(cm[0, 1]),
-        "fn": int(cm[1, 0]), "tp": int(cm[1, 1]),
+        "tn": int(cm[0, 0]),
+        "fp": int(cm[0, 1]),
+        "fn": int(cm[1, 0]),
+        "tp": int(cm[1, 1]),
     }
 
 
@@ -136,9 +158,13 @@ def train_and_compare(X_train, X_test, y_train, y_test, save=True):
         metrics = evaluate_model(model, X_test, y_test, name)
         all_metrics.append(metrics)
         trained[name] = model
-        logger.info(f"  ROC-AUC: {metrics['roc_auc']:.4f} | F1: {metrics['f1']:.4f} | Recall: {metrics['recall']:.4f}")
+        logger.info(
+            f"  ROC-AUC: {metrics['roc_auc']:.4f} | F1: {metrics['f1']:.4f} | Recall: {metrics['recall']:.4f}"
+        )
 
-    results = pd.DataFrame(all_metrics).sort_values("roc_auc", ascending=False).reset_index(drop=True)
+    results = (
+        pd.DataFrame(all_metrics).sort_values("roc_auc", ascending=False).reset_index(drop=True)
+    )
 
     if save:
         best_name = results.iloc[0]["model"]
@@ -163,16 +189,28 @@ def compute_shap_importance(model, X_train, X_sample, feature_names, save_plot=T
         shap_values = shap_values[:, :, 1]
 
     mean_abs = np.abs(shap_values).mean(axis=0)
-    importance = pd.DataFrame({
-        "feature": feature_names,
-        "mean_abs_shap": mean_abs,
-    }).sort_values("mean_abs_shap", ascending=False).reset_index(drop=True)
+    importance = (
+        pd.DataFrame(
+            {
+                "feature": feature_names,
+                "mean_abs_shap": mean_abs,
+            }
+        )
+        .sort_values("mean_abs_shap", ascending=False)
+        .reset_index(drop=True)
+    )
 
     if save_plot:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         fig, ax = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values, X_sample, feature_names=feature_names,
-                          plot_type="bar", show=False, max_display=10)
+        shap.summary_plot(
+            shap_values,
+            X_sample,
+            feature_names=feature_names,
+            plot_type="bar",
+            show=False,
+            max_display=10,
+        )
         plt.title("Diabetes Prediction — Global Feature Importance (SHAP)")
         plt.tight_layout()
         plt.savefig(REPORTS_DIR / "diabetes_shap_importance.png", dpi=150, bbox_inches="tight")
@@ -193,10 +231,14 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test, features, prep = preprocess(df)
     results, models = train_and_compare(X_train, X_test, y_train, y_test)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("DIABETES PREDICTION — MODEL COMPARISON")
-    print(f"{'='*60}")
-    print(results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].to_string(index=False))
+    print(f"{'=' * 60}")
+    print(
+        results[["model", "accuracy", "precision", "recall", "f1", "roc_auc"]].to_string(
+            index=False
+        )
+    )
 
     # SHAP on best model
     best_name = results.iloc[0]["model"]
