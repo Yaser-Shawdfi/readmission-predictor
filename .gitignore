@@ -1,0 +1,28 @@
+# Data files
+data/*.csv
+
+# Model artifacts
+models/*.joblib
+models/*.csv
+
+# Reports
+reports/*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
